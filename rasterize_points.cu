@@ -59,8 +59,7 @@ RasterizeGaussiansCUDA(
   auto float_opts = means3D.options().dtype(torch::kFloat32);
 
   torch::Tensor out_color = torch::full({NUM_CHANNELS, H, W}, 0.0, float_opts);
-  torch::Tensor out_depth = torch::full({1, H, W}, 0.0, float_opts);
-  torch::Tensor out_alpha = torch::full({1, H, W}, 0.0, float_opts);
+  torch::Tensor out_depth = torch::full({H, W}, 0.0, float_opts);
   torch::Tensor radii =
       torch::full({P}, 0, means3D.options().dtype(torch::kInt32));
 
@@ -95,7 +94,6 @@ RasterizeGaussiansCUDA(
         campos.contiguous().data<float>(), tan_fovx, tan_fovy, prefiltered,
         out_color.contiguous().data<float>(),
         out_depth.contiguous().data<float>(),
-        out_alpha.contiguous().data<float>(),
         radii.contiguous().data<int>(),
         debug);
   }
@@ -112,8 +110,7 @@ RasterizeGaussiansBackwardCUDA(
     const float scale_modifier, const torch::Tensor &cov3D_precomp,
     const torch::Tensor &viewmatrix, const torch::Tensor &projmatrix,
     const float tan_fovx, const float tan_fovy,
-    const torch::Tensor &dL_dout_color, const torch::Tensor &depths,
-    const torch::Tensor &dL_dout_depths, const torch::Tensor &sh,
+    const torch::Tensor &dL_dout_color, const torch::Tensor &dL_dout_depths, const torch::Tensor &sh,
     const int degree, const torch::Tensor &campos,
     const torch::Tensor &geomBuffer, const int R,
     const torch::Tensor &binningBuffer, const torch::Tensor &imageBuffer,
@@ -156,7 +153,6 @@ RasterizeGaussiansBackwardCUDA(
         reinterpret_cast<char *>(binningBuffer.contiguous().data_ptr()),
         reinterpret_cast<char *>(imageBuffer.contiguous().data_ptr()),
         dL_dout_color.contiguous().data<float>(),
-        depths.contiguous().data<float>(),
         dL_dout_depths.contiguous().data<float>(),
         dL_dmeans2D.contiguous().data<float>(),
         dL_dconic.contiguous().data<float>(),

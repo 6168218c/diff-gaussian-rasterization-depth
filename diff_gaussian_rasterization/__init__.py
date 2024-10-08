@@ -130,7 +130,6 @@ class _RasterizeGaussians(torch.autograd.Function):
             geomBuffer,
             binningBuffer,
             imgBuffer,
-            depth,
         )
         return color, radii, depth
 
@@ -150,7 +149,6 @@ class _RasterizeGaussians(torch.autograd.Function):
             geomBuffer,
             binningBuffer,
             imgBuffer,
-            depth,
         ) = ctx.saved_tensors
 
         # Restructure args as C++ method expects them
@@ -168,7 +166,6 @@ class _RasterizeGaussians(torch.autograd.Function):
             raster_settings.tanfovx,
             raster_settings.tanfovy,
             grad_out_color,
-            depth,
             grad_depth,
             sh,
             raster_settings.sh_degree,

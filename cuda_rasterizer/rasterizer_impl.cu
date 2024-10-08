@@ -199,7 +199,7 @@ int CudaRasterizer::Rasterizer::forward(
     const float *scales, const float scale_modifier, const float *rotations,
     const float *cov3D_precomp, const float *viewmatrix,
     const float *projmatrix, const float *cam_pos, const float tan_fovx,
-    float tan_fovy, const bool prefiltered, float *out_color, float *out_depth, float *out_alpha,
+    float tan_fovy, const bool prefiltered, float *out_color, float *out_depth,
     int *radii, bool debug)
 {
   const float focal_y = height / (2.0f * tan_fovy);
@@ -295,7 +295,7 @@ int CudaRasterizer::Rasterizer::forward(
                              geomState.means2D, feature_ptr, geomState.depths,
                              geomState.conic_opacity, imgState.accum_alpha,
                              imgState.n_contrib, background, out_color,
-                             out_depth, out_alpha),
+                             out_depth),
              debug)
 
   return num_rendered;
@@ -311,7 +311,7 @@ void CudaRasterizer::Rasterizer::backward(
     const float *cov3D_precomp, const float *viewmatrix,
     const float *projmatrix, const float *campos, const float tan_fovx,
     float tan_fovy, const int *radii, char *geom_buffer, char *binning_buffer,
-    char *img_buffer, const float *dL_dpix, const float *depth_ptr,
+    char *img_buffer, const float *dL_dpix,
     const float *dL_ddepth, float *dL_dmean2D, float *dL_dconic,
     float *dL_dopacity, float *dL_dcolor, float *dL_dmean3D, float *dL_dcov3D,
     float *dL_dsh, float *dL_dscale, float *dL_drot, bool debug)
@@ -337,6 +337,7 @@ void CudaRasterizer::Rasterizer::backward(
   // If we were given precomputed colors and not SHs, use them.
   const float *color_ptr =
       (colors_precomp != nullptr) ? colors_precomp : geomState.rgb;
+  const float *depth_ptr = geomState.depths;
   CHECK_CUDA(BACKWARD::render(
                  tile_grid, block, imgState.ranges, binningState.point_list,
                  width, height, background, geomState.means2D,
