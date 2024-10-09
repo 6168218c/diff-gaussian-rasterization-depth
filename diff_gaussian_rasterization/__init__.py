@@ -320,6 +320,7 @@ class GaussianRasterizer(nn.Module):
         cov3Ds_precomp=None,
         cnt=None,
         image_weights=None,
+        rendered_weights=False,
     ):
         assert weights is not None
         assert cnt is not None
@@ -341,6 +342,7 @@ class GaussianRasterizer(nn.Module):
             raster_settings.bg,
             means3D,
             weights,
+            rendered_weights,
             opacities,
             scales,
             rotations,

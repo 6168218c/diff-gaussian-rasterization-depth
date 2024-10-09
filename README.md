@@ -1,11 +1,10 @@
 # Differential Gaussian Rasterization
 
-This is a forked repository of the rasterization pipeline from the paper "3D Gaussian Splatting for Real-Time Rendering of Radiance Fields". I have made some extensions to it: 
+This is a forked repository of the rasterization pipeline from the paper "3D Gaussian Splatting for Real-Time Rendering of Radiance Fields" and "GaussianEditor: Swift and Controllable 3D Editing with Gaussian Splatting". With depth forward and backward pass added to it.
 
-- main branch incorporates only the forward pass of depth, which is used for depth visualization. 
-- 4th-degree: add the 4th degree of SH
-- depth: add both the forward and backward pass of depth, which is used for some tasks with depth supervision.
-- latest: is the dev branch that contains acc and depth visualization, together with depth backward pass. 
+It's difference from the original gaussian-splatting diff-gaussian-rasterization is:
+- applying masks for arbitrary image weights
+- forward and backward pass for depth
 
 <section class="section" id="BibTeX">
   <div class="container is-max-desktop content">
