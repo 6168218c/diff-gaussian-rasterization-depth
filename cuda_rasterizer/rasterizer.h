@@ -94,7 +94,6 @@ namespace CudaRasterizer
 			const float *means3D,
 			const float *shs,
 			float *weights,
-			bool rendered_weights,
 			const float *opacities,
 			const float *scales,
 			const float scale_modifier,

@@ -190,7 +190,7 @@ torch::Tensor markVisible(torch::Tensor &means3D, torch::Tensor &viewmatrix,
 
 void applyWeightsGaussiansCUDA(
     const torch::Tensor &background, const torch::Tensor &means3D,
-    const torch::Tensor &weights, const bool rendered_weights, const torch::Tensor &opacity,
+    const torch::Tensor &weights, const torch::Tensor &opacity,
     const torch::Tensor &scales, const torch::Tensor &rotations,
     const float scale_modifier, torch::Tensor &cov3D_precomp,
     const torch::Tensor &viewmatrix, const torch::Tensor &projmatrix,
@@ -238,7 +238,7 @@ void applyWeightsGaussiansCUDA(
         geomFunc, binningFunc, imgFunc, P, degree, M,
         background.contiguous().data<float>(), W, H,
         means3D.contiguous().data<float>(), sh.contiguous().data_ptr<float>(),
-        weights.contiguous().data<float>(), rendered_weights, opacity.contiguous().data<float>(),
+        weights.contiguous().data<float>(), opacity.contiguous().data<float>(),
         scales.contiguous().data_ptr<float>(), scale_modifier,
         rotations.contiguous().data_ptr<float>(),
         cov3D_precomp.contiguous().data<float>(),

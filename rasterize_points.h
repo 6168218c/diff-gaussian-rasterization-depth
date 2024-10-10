@@ -69,7 +69,7 @@ torch::Tensor markVisible(
 
 void applyWeightsGaussiansCUDA(
 	const torch::Tensor &background, const torch::Tensor &means3D,
-	const torch::Tensor &weights, const bool rendered_weights, const torch::Tensor &opacity,
+	const torch::Tensor &weights, const torch::Tensor &opacity,
 	const torch::Tensor &scales, const torch::Tensor &rotations,
 	const float scale_modifier, torch::Tensor &cov3D_precomp,
 	const torch::Tensor &viewmatrix, const torch::Tensor &projmatrix,

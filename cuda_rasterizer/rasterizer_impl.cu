@@ -366,7 +366,7 @@ void CudaRasterizer::Rasterizer::apply_weights(
     std::function<char *(size_t)> binningBuffer,
     std::function<char *(size_t)> imageBuffer, const int P, int D, int M,
     const float *background, const int width, int height, const float *means3D,
-    const float *shs, float *weights, bool rendered_weights, const float *opacities,
+    const float *shs, float *colors_precomp, const float *opacities,
     const float *scales, const float scale_modifier, const float *rotations,
     const float *cov3D_precomp, const float *viewmatrix,
     const float *projmatrix, const float *cam_pos, const float tan_fovx,
@@ -394,7 +394,7 @@ void CudaRasterizer::Rasterizer::apply_weights(
   char *img_chunkptr = imageBuffer(img_chunk_size);
   ImageState imgState = ImageState::fromChunk(img_chunkptr, width * height);
 
-  if (NUM_CHANNELS != 3 && weights == nullptr)
+  if (NUM_CHANNELS != 3 && colors_precomp == nullptr)
   {
     throw std::runtime_error(
         "For non-RGB, provide precomputed Gaussian colors!");
@@ -405,7 +405,7 @@ void CudaRasterizer::Rasterizer::apply_weights(
   CHECK_CUDA(APPLY_WEIGHTS::preprocess(
                  P, D, M, means3D, (glm::vec3 *)scales, scale_modifier,
                  (glm::vec4 *)rotations, opacities, shs, geomState.clamped,
-                 cov3D_precomp, weights, viewmatrix, projmatrix,
+                 cov3D_precomp, colors_precomp, viewmatrix, projmatrix,
                  (glm::vec3 *)cam_pos, width, height, focal_x, focal_y,
                  tan_fovx, tan_fovy, radii, geomState.means2D, geomState.depths,
                  geomState.cov3D, geomState.rgb, geomState.conic_opacity,
@@ -460,10 +460,10 @@ void CudaRasterizer::Rasterizer::apply_weights(
 
   // Let each tile blend its range of Gaussians independently in parallel
   float *feature_ptr =
-      weights != nullptr ? weights : geomState.rgb;
+      colors_precomp != nullptr ? colors_precomp : geomState.rgb;
   CHECK_CUDA(APPLY_WEIGHTS::render(
                  tile_grid, block, imgState.ranges, binningState.point_list,
-                 width, height, geomState.means2D, feature_ptr, rendered_weights,
+                 width, height, geomState.means2D, feature_ptr,
                  geomState.conic_opacity, imgState.accum_alpha,
                  imgState.n_contrib, background, image_weights, cnt,
                  num_channels),
