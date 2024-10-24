@@ -67,13 +67,15 @@ torch::Tensor markVisible(
 	torch::Tensor &viewmatrix,
 	torch::Tensor &projmatrix);
 
-void applyWeightsGaussiansCUDA(
-	const torch::Tensor &background, const torch::Tensor &means3D,
-	const torch::Tensor &weights, const torch::Tensor &opacity,
+std::tuple<torch::Tensor, torch::Tensor>
+applyWeightsGaussiansCUDA(
+	const torch::Tensor &background,
+	const torch::Tensor &image_weights, const bool render_like,
+	const torch::Tensor &means3D, const torch::Tensor &opacity,
 	const torch::Tensor &scales, const torch::Tensor &rotations,
 	const float scale_modifier, torch::Tensor &cov3D_precomp,
 	const torch::Tensor &viewmatrix, const torch::Tensor &projmatrix,
 	const float tan_fovx, const float tan_fovy, const int image_height,
 	const int image_width, const torch::Tensor &sh, const int degree,
 	const torch::Tensor &campos, const bool prefiltered,
-	const torch::Tensor &image_weights, torch::Tensor &cnt, const bool debug);
+	const bool debug);

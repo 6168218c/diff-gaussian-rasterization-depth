@@ -44,6 +44,7 @@ namespace APPLY_WEIGHTS
 		int W, int H,
 		const float2* points_xy_image,
 		float* weights,
+		const bool render_like,
 		const float4* conic_opacity,
 		float* final_T,
 		uint32_t* n_contrib,

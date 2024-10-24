@@ -314,15 +314,12 @@ class GaussianRasterizer(nn.Module):
         means2D,
         opacities,
         shs=None,
-        weights=None,
         scales=None,
         rotations=None,
         cov3Ds_precomp=None,
-        cnt=None,
         image_weights=None,
+        render_like=False,
     ):
-        assert weights is not None
-        assert cnt is not None
         assert image_weights is not None
 
         raster_settings = self.raster_settings
@@ -339,8 +336,9 @@ class GaussianRasterizer(nn.Module):
 
         args = (
             raster_settings.bg,
+            image_weights,
+            render_like,
             means3D,
-            weights,
             opacities,
             scales,
             rotations,
@@ -356,9 +354,9 @@ class GaussianRasterizer(nn.Module):
             raster_settings.sh_degree,
             raster_settings.campos,
             raster_settings.prefiltered,
-            image_weights,
-            cnt,
             raster_settings.debug,
         )
 
-        _C.apply_weights(*args)
+        (weights, weights_cnt) = _C.apply_weights(*args)
+        
+        return weights, weights_cnt

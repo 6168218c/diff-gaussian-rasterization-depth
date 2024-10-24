@@ -188,16 +188,16 @@ torch::Tensor markVisible(torch::Tensor &means3D, torch::Tensor &viewmatrix,
   return present;
 }
 
-void applyWeightsGaussiansCUDA(
-    const torch::Tensor &background, const torch::Tensor &means3D,
-    const torch::Tensor &weights, const torch::Tensor &opacity,
+std::tuple<torch::Tensor, torch::Tensor> applyWeightsGaussiansCUDA(
+    const torch::Tensor &background,
+    const torch::Tensor &image_weights, const bool render_like,
+    const torch::Tensor &means3D, const torch::Tensor &opacity,
     const torch::Tensor &scales, const torch::Tensor &rotations,
     const float scale_modifier, torch::Tensor &cov3D_precomp,
     const torch::Tensor &viewmatrix, const torch::Tensor &projmatrix,
     const float tan_fovx, const float tan_fovy, const int image_height,
     const int image_width, const torch::Tensor &sh, const int degree,
-    const torch::Tensor &campos, const bool prefiltered,
-    const torch::Tensor &image_weights, torch::Tensor &cnt, const bool debug)
+    const torch::Tensor &campos, const bool prefiltered, const bool debug)
 {
   if (means3D.ndimension() != 2 || means3D.size(1) != 3)
   {
@@ -212,6 +212,9 @@ void applyWeightsGaussiansCUDA(
 
   auto int_opts = means3D.options().dtype(torch::kInt32);
   auto float_opts = means3D.options().dtype(torch::kFloat32);
+
+  torch::Tensor weights = torch::zeros({P, 1}, float_opts);
+  torch::Tensor weights_cnt = torch::zeros({P, 1}, int_opts);
 
   torch::Tensor out_color = torch::full({NUM_CHANNELS, H, W}, 0.0, float_opts);
   torch::Tensor radii =
@@ -238,7 +241,7 @@ void applyWeightsGaussiansCUDA(
         geomFunc, binningFunc, imgFunc, P, degree, M,
         background.contiguous().data<float>(), W, H,
         means3D.contiguous().data<float>(), sh.contiguous().data_ptr<float>(),
-        weights.contiguous().data<float>(), opacity.contiguous().data<float>(),
+        weights.contiguous().data<float>(), render_like, opacity.contiguous().data<float>(),
         scales.contiguous().data_ptr<float>(), scale_modifier,
         rotations.contiguous().data_ptr<float>(),
         cov3D_precomp.contiguous().data<float>(),
@@ -246,7 +249,9 @@ void applyWeightsGaussiansCUDA(
         projmatrix.contiguous().data<float>(),
         campos.contiguous().data<float>(), tan_fovx, tan_fovy, prefiltered,
         image_weights.contiguous().data<float>(),
-        radii.contiguous().data_ptr<int>(), cnt.contiguous().data_ptr<int>(),
+        radii.contiguous().data_ptr<int>(), weights_cnt.contiguous().data_ptr<int>(),
         num_channels, debug);
   }
+
+  return std::make_tuple(weights, weights_cnt);
 }

@@ -240,7 +240,7 @@ template <uint32_t CHANNELS>
 __global__ void __launch_bounds__(BLOCK_X *BLOCK_Y) renderCUDA_apply_weights(
     const uint2 *__restrict__ ranges, const uint32_t *__restrict__ point_list,
     int W, int H, const float2 *__restrict__ points_xy_image,
-    float *__restrict__ weights, const float4 *__restrict__ conic_opacity,
+    float *__restrict__ weights, const bool render_like, const float4 *__restrict__ conic_opacity,
     float *__restrict__ final_T, uint32_t *__restrict__ n_contrib,
     const float *__restrict__ bg_color, const float *__restrict__ image_weights,
     int *__restrict__ cnt) {
@@ -329,7 +329,8 @@ __global__ void __launch_bounds__(BLOCK_X *BLOCK_Y) renderCUDA_apply_weights(
 
       // Eq. (3) from 3D Gaussian splatting paper.
       for (int ch = 0; ch < CHANNELS; ch++) {
-        atomicAdd(weights + (collected_id[j] * CHANNELS + ch), C[ch]);
+        if (render_like) atomicAdd(weights + (collected_id[j] * CHANNELS + ch), C[ch] * alpha * T);
+        else atomicAdd(weights + (collected_id[j] * CHANNELS + ch), C[ch]);
         // atomicAdd(weights + (collected_id[j] * CHANNELS + ch), C[ch] * T);
         atomicAdd(cnt + collected_id[j], 1);
         // if (C[ch] > 0.0f) {
@@ -357,22 +358,22 @@ __global__ void __launch_bounds__(BLOCK_X *BLOCK_Y) renderCUDA_apply_weights(
 
 void APPLY_WEIGHTS::render(const dim3 grid, dim3 block, const uint2 *ranges,
                            const uint32_t *point_list, int W, int H,
-                           const float2 *means2D, float *weights,
+                           const float2 *means2D, float *weights, const bool render_like,
                            const float4 *conic_opacity, float *final_T,
                            uint32_t *n_contrib, const float *bg_color,
                            const float *image_weights, int *cnt,
                            const int num_channels) {
   if (num_channels == 1) {
     renderCUDA_apply_weights<1><<<grid, block>>>(
-        ranges, point_list, W, H, means2D, weights, conic_opacity, final_T,
+        ranges, point_list, W, H, means2D, weights, render_like, conic_opacity, final_T,
         n_contrib, bg_color, image_weights, cnt);
   } else if (num_channels == 2) {
     renderCUDA_apply_weights<2><<<grid, block>>>(
-        ranges, point_list, W, H, means2D, weights, conic_opacity, final_T,
+        ranges, point_list, W, H, means2D, weights, render_like, conic_opacity, final_T,
         n_contrib, bg_color, image_weights, cnt);
   } else if (num_channels == 3) {
     renderCUDA_apply_weights<3><<<grid, block>>>(
-        ranges, point_list, W, H, means2D, weights, conic_opacity, final_T,
+        ranges, point_list, W, H, means2D, weights, render_like, conic_opacity, final_T,
         n_contrib, bg_color, image_weights, cnt);
   } else {
     printf("Unsupported number of channels: %d\n", num_channels);
