@@ -213,8 +213,8 @@ std::tuple<torch::Tensor, torch::Tensor> applyWeightsGaussiansCUDA(
   auto int_opts = means3D.options().dtype(torch::kInt32);
   auto float_opts = means3D.options().dtype(torch::kFloat32);
 
-  torch::Tensor weights = torch::zeros({P, 1}, float_opts);
-  torch::Tensor weights_cnt = torch::zeros({P, 1}, int_opts);
+  torch::Tensor weights = torch::zeros({num_channels, P}, float_opts);
+  torch::Tensor weights_cnt = torch::zeros({P}, int_opts);
 
   torch::Tensor out_color = torch::full({NUM_CHANNELS, H, W}, 0.0, float_opts);
   torch::Tensor radii =
