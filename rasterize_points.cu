@@ -208,16 +208,20 @@ std::tuple<torch::Tensor, torch::Tensor> applyWeightsGaussiansCUDA(
   const int H = image_height;
   const int W = image_width;
 
+  if (H != image_weights.size(1) || W != image_weights.size(2))
+  {
+    AT_ERROR("image_weights must have dimensions (num_channels, H, W)");
+  }
+
   const int num_channels = image_weights.size(0);
   // printf("num_channels %d\n", num_channels);
 
   auto int_opts = means3D.options().dtype(torch::kInt32);
   auto float_opts = means3D.options().dtype(torch::kFloat32);
 
-  torch::Tensor weights = torch::zeros({num_channels, P}, float_opts);
-  torch::Tensor weights_cnt = torch::zeros({P}, int_opts);
+  torch::Tensor out_weights = torch::full({num_channels, P}, 0.0, float_opts);
+  torch::Tensor out_cnt = torch::full({P}, 0, int_opts);
 
-  torch::Tensor out_color = torch::full({NUM_CHANNELS, H, W}, 0.0, float_opts);
   torch::Tensor radii =
       torch::full({P}, 0, means3D.options().dtype(torch::kInt32));
 
@@ -241,8 +245,8 @@ std::tuple<torch::Tensor, torch::Tensor> applyWeightsGaussiansCUDA(
     CudaRasterizer::Rasterizer::apply_weights(
         geomFunc, binningFunc, imgFunc, P, degree, M,
         background.contiguous().data<float>(), W, H,
-        means3D.contiguous().data<float>(), sh.contiguous().data_ptr<float>(),
-        weights.contiguous().data<float>(), render_like, opacity.contiguous().data<float>(),
+        means3D.contiguous().data<float>(),
+        sh.contiguous().data_ptr<float>(), opacity.contiguous().data<float>(),
         scales.contiguous().data_ptr<float>(), scale_modifier,
         rotations.contiguous().data_ptr<float>(),
         cov3D_precomp.contiguous().data<float>(),
@@ -250,9 +254,10 @@ std::tuple<torch::Tensor, torch::Tensor> applyWeightsGaussiansCUDA(
         projmatrix.contiguous().data<float>(),
         campos.contiguous().data<float>(), tan_fovx, tan_fovy, prefiltered,
         image_weights.contiguous().data<float>(),
-        radii.contiguous().data_ptr<int>(), weights_cnt.contiguous().data_ptr<int>(),
-        num_channels, debug);
+        out_weights.contiguous().data<float>(),
+        out_cnt.contiguous().data_ptr<int>(), render_like, num_channels,
+        radii.contiguous().data_ptr<int>(), debug);
   }
 
-  return std::make_tuple(weights, weights_cnt);
+  return std::make_tuple(out_weights, out_cnt);
 }

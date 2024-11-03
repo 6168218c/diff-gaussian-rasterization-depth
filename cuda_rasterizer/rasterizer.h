@@ -94,8 +94,6 @@ namespace CudaRasterizer
 			const int width, int height,
 			const float *means3D,
 			const float *shs,
-			float *weights,
-			const bool render_like,
 			const float *opacities,
 			const float *scales,
 			const float scale_modifier,
@@ -106,10 +104,12 @@ namespace CudaRasterizer
 			const float *cam_pos,
 			const float tan_fovx, float tan_fovy,
 			const bool prefiltered,
-			const float *out_color,
-			int *radii = nullptr,
-			int *cnt = nullptr,
+			const float *image_weights,
+			float *out_weights,
+			int *out_cnt,
+			const bool render_like = false,
 			const int num_channels = 3,
+			int *radii = nullptr,
 			bool debug = false);
 	};
 };
