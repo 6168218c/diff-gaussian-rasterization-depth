@@ -148,6 +148,7 @@ CudaRasterizer::GeometryState::fromChunk(char *&chunk, size_t P)
 {
   GeometryState geom;
   obtain(chunk, geom.depths, P, 128);
+  obtain(chunk, geom.surface_depths, P, 128);
   obtain(chunk, geom.clamped, P * 3, 128);
   obtain(chunk, geom.internal_radii, P, 128);
   obtain(chunk, geom.means2D, P, 128);
@@ -237,8 +238,9 @@ int CudaRasterizer::Rasterizer::forward(
                  cov3D_precomp, colors_precomp, viewmatrix, projmatrix,
                  (glm::vec3 *)cam_pos, width, height, focal_x, focal_y,
                  tan_fovx, tan_fovy, radii, geomState.means2D, geomState.depths,
-                 geomState.cov3D, geomState.rgb, geomState.conic_opacity,
-                 tile_grid, geomState.tiles_touched, prefiltered),
+                 geomState.surface_depths, geomState.cov3D, geomState.rgb,
+                 geomState.conic_opacity, tile_grid, geomState.tiles_touched,
+                 prefiltered),
              debug)
 
   // Compute prefix sum over full list of touched tile counts by Gaussians
@@ -292,10 +294,10 @@ int CudaRasterizer::Rasterizer::forward(
       colors_precomp != nullptr ? colors_precomp : geomState.rgb;
   CHECK_CUDA(FORWARD::render(tile_grid, block, imgState.ranges,
                              binningState.point_list, width, height,
-                             geomState.means2D, feature_ptr, geomState.depths,
-                             geomState.conic_opacity, imgState.accum_alpha,
-                             imgState.n_contrib, background, out_color,
-                             out_depth),
+                             geomState.means2D, feature_ptr,
+                             geomState.surface_depths, geomState.conic_opacity,
+                             imgState.accum_alpha, imgState.n_contrib,
+                             background, out_color, out_depth),
              debug)
 
   return num_rendered;

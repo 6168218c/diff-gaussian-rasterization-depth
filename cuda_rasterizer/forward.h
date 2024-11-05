@@ -40,6 +40,7 @@ namespace FORWARD
 					int *radii,
 					float2 *points_xy_image,
 					float *depths,
+					float *surface_depths,
 					float *cov3Ds,
 					float *colors,
 					float4 *conic_opacity,

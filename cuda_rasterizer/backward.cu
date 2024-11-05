@@ -146,6 +146,7 @@ __global__ void computeCov2DCUDA(int P,
 								 const float tan_fovx, float tan_fovy,
 								 const float *view_matrix,
 								 const float *dL_dconics,
+								 const float *dL_ddepth,
 								 float3 *dL_dmeans,
 								 float *dL_dcov)
 {
@@ -168,13 +169,14 @@ __global__ void computeCov2DCUDA(int P,
 	const float tytz = t.y / t.z;
 	t.x = min(limx, max(-limx, txtz)) * t.z;
 	t.y = min(limy, max(-limy, tytz)) * t.z;
+	const float l = sqrt(t.x * t.x + t.y * t.y + t.z * t.z);
 
 	const float x_grad_mul = txtz < -limx || txtz > limx ? 0 : 1;
 	const float y_grad_mul = tytz < -limy || tytz > limy ? 0 : 1;
 
 	glm::mat3 J = glm::mat3(h_x / t.z, 0.0f, -(h_x * t.x) / (t.z * t.z),
 							0.0f, h_y / t.z, -(h_y * t.y) / (t.z * t.z),
-							0, 0, 0);
+							t.x / l, t.y / l, t.z / l);
 
 	glm::mat3 W = glm::mat3(
 		view_matrix[0], view_matrix[4], view_matrix[8],
@@ -194,9 +196,12 @@ __global__ void computeCov2DCUDA(int P,
 	float a = cov2D[0][0] += 0.3f;
 	float b = cov2D[0][1];
 	float c = cov2D[1][1] += 0.3f;
+	float d = cov2D[2][2];
 
 	float denom = a * c - b * b;
 	float dL_da = 0, dL_db = 0, dL_dc = 0;
+	// From surface_depth = point_depth - cov[2][2]
+	float dL_dd = -dL_ddepth[idx];
 	float denom2inv = 1.0f / ((denom * denom) + 0.0000001f);
 
 	if (denom2inv != 0)
@@ -243,6 +248,9 @@ __global__ void computeCov2DCUDA(int P,
 					(T[0][0] * Vrk[1][0] + T[0][1] * Vrk[1][1] + T[0][2] * Vrk[1][2]) * dL_db;
 	float dL_dT12 = 2 * (T[1][0] * Vrk[2][0] + T[1][1] * Vrk[2][1] + T[1][2] * Vrk[2][2]) * dL_dc +
 					(T[0][0] * Vrk[2][0] + T[0][1] * Vrk[2][1] + T[0][2] * Vrk[2][2]) * dL_db;
+	float dL_dT20 = 2 * (T[2][0] * Vrk[0][0] + T[2][1] * Vrk[0][1] + T[2][2] * Vrk[0][2]) * dL_dd;
+	float dL_dT21 = 2 * (T[2][0] * Vrk[1][0] + T[2][1] * Vrk[1][1] + T[2][2] * Vrk[1][2]) * dL_dd;
+	float dL_dT22 = 2 * (T[2][0] * Vrk[2][0] + T[2][1] * Vrk[2][1] + T[2][2] * Vrk[2][2]) * dL_dd;
 
 	// Gradients of loss w.r.t. upper 3x2 non-zero entries of Jacobian matrix
 	// T = W * J
@@ -250,15 +258,21 @@ __global__ void computeCov2DCUDA(int P,
 	float dL_dJ02 = W[2][0] * dL_dT00 + W[2][1] * dL_dT01 + W[2][2] * dL_dT02;
 	float dL_dJ11 = W[1][0] * dL_dT10 + W[1][1] * dL_dT11 + W[1][2] * dL_dT12;
 	float dL_dJ12 = W[2][0] * dL_dT10 + W[2][1] * dL_dT11 + W[2][2] * dL_dT12;
+	float dL_dJ20 = W[0][0] * dL_dT20 + W[0][1] * dL_dT21 + W[0][2] * dL_dT22;
+	float dL_dJ21 = W[1][0] * dL_dT20 + W[1][1] * dL_dT21 + W[1][2] * dL_dT22;
+	float dL_dJ22 = W[2][0] * dL_dT20 + W[2][1] * dL_dT21 + W[2][2] * dL_dT22;
 
 	float tz = 1.f / t.z;
 	float tz2 = tz * tz;
 	float tz3 = tz2 * tz;
+	float l1 = 1.f / l;
+	float l3 = l1 * l1 * l1;
 
 	// Gradients of loss w.r.t. transformed Gaussian mean t
-	float dL_dtx = x_grad_mul * -h_x * tz2 * dL_dJ02;
-	float dL_dty = y_grad_mul * -h_y * tz2 * dL_dJ12;
-	float dL_dtz = -h_x * tz2 * dL_dJ00 - h_y * tz2 * dL_dJ11 + (2 * h_x * t.x) * tz3 * dL_dJ02 + (2 * h_y * t.y) * tz3 * dL_dJ12;
+	float dL_dtx = x_grad_mul * -h_x * tz2 * dL_dJ02 + (l1 + t.x * t.x * l3) * dL_dJ20;
+	float dL_dty = y_grad_mul * -h_y * tz2 * dL_dJ12 + (l1 + t.y * t.y * l3) * dL_dJ21;
+	float dL_dtz = -h_x * tz2 * dL_dJ00 - h_y * tz2 * dL_dJ11 + (2 * h_x * t.x) * tz3 * dL_dJ02 + (2 * h_y * t.y) * tz3 * dL_dJ12
+					+ (l1 + t.z * t.z * l3) * dL_dJ22;
 
 	// Account for transformation of mean to t
 	// t = transformPoint4x3(mean, view_matrix);
@@ -627,6 +641,7 @@ void BACKWARD::preprocess(
 		tan_fovy,
 		viewmatrix,
 		dL_dconic,
+		dL_ddepth,
 		(float3 *)dL_dmean3D,
 		dL_dcov3D);
 

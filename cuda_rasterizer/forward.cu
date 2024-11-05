@@ -71,7 +71,8 @@ __device__ glm::vec3 computeColorFromSH(int idx, int deg, int max_coeffs, const 
 }
 
 // Forward version of 2D covariance matrix computation
-__device__ float3 computeCov2D(const float3 &mean, float focal_x, float focal_y, float tan_fovx, float tan_fovy, const float *cov3D, const float *viewmatrix)
+__device__ float4 computeCov2D(const float3 &mean, float focal_x, float focal_y, float tan_fovx, float tan_fovy,
+                               const float *cov3D, const float *viewmatrix)
 {
 	// The following models the steps outlined by equations 29
 	// and 31 in "EWA Splatting" (Zwicker et al., 2002).
@@ -85,11 +86,13 @@ __device__ float3 computeCov2D(const float3 &mean, float focal_x, float focal_y,
 	const float tytz = t.y / t.z;
 	t.x = min(limx, max(-limx, txtz)) * t.z;
 	t.y = min(limy, max(-limy, tytz)) * t.z;
+	const float l = sqrt(t.x * t.x + t.y * t.y + t.z * t.z);
 
+	// u = t
 	glm::mat3 J = glm::mat3(
 		focal_x / t.z, 0.0f, -(focal_x * t.x) / (t.z * t.z),
 		0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
-		0, 0, 0);
+		t.x / l, t.y / l, t.z / l);
 
 	glm::mat3 W = glm::mat3(
 		viewmatrix[0], viewmatrix[4], viewmatrix[8],
@@ -109,7 +112,8 @@ __device__ float3 computeCov2D(const float3 &mean, float focal_x, float focal_y,
 	// one pixel wide/high. Discard 3rd row and column.
 	cov[0][0] += 0.3f;
 	cov[1][1] += 0.3f;
-	return {float(cov[0][0]), float(cov[0][1]), float(cov[1][1])};
+    // Add the third diag of cov matrix for depth estimation.
+    return {float(cov[0][0]), float(cov[0][1]), float(cov[1][1]), float(cov[2][2])};
 }
 
 // Forward method for converting scale and rotation properties of each
@@ -171,6 +175,7 @@ __global__ void preprocessCUDA(int P, int D, int M,
 							   int *radii,
 							   float2 *points_xy_image,
 							   float *depths,
+							   float *surface_depths,
 							   float *cov3Ds,
 							   float *rgb,
 							   float4 *conic_opacity,
@@ -212,9 +217,9 @@ __global__ void preprocessCUDA(int P, int D, int M,
 	}
 
 	// Compute 2D screen-space covariance matrix
-	float3 cov = computeCov2D(p_orig, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix);
+    float4 cov = computeCov2D(p_orig, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix);
 
-	// Invert covariance (EWA algorithm)
+    // Invert covariance (EWA algorithm)
 	float det = (cov.x * cov.z - cov.y * cov.y);
 	if (det == 0.0f)
 		return;
@@ -247,6 +252,7 @@ __global__ void preprocessCUDA(int P, int D, int M,
 
 	// Store some useful helper data for the next steps.
 	depths[idx] = p_view.z;
+	surface_depths[idx] = depths[idx] - cov.w;
 	radii[idx] = my_radius;
 	points_xy_image[idx] = point_image;
 	// Inverse 2D covariance and opacity neatly pack into one float4
@@ -426,6 +432,7 @@ void FORWARD::preprocess(int P, int D, int M,
 						 int *radii,
 						 float2 *means2D,
 						 float *depths,
+						 float *surface_depths,
 						 float *cov3Ds,
 						 float *rgb,
 						 float4 *conic_opacity,
@@ -453,6 +460,7 @@ void FORWARD::preprocess(int P, int D, int M,
 		radii,
 		means2D,
 		depths,
+		surface_depths,
 		cov3Ds,
 		rgb,
 		conic_opacity,
