@@ -226,14 +226,13 @@ __global__ void preprocessCUDA_apply_weights(
 // Main rasterization method. Collaboratively works on one tile per
 // block, each thread treats one pixel. Alternates between fetching
 // and rasterizing data.
-template <uint32_t CHANNELS>
 __global__ void __launch_bounds__(BLOCK_X *BLOCK_Y) renderCUDA_apply_weights(
     const uint2 *__restrict__ ranges, const uint32_t *__restrict__ point_list,
     int W, int H, const float2 *__restrict__ points_xy_image,
     const float4 *__restrict__ conic_opacity, float *__restrict__ final_T,
     uint32_t *__restrict__ n_contrib, const float *__restrict__ bg_color,
     const float *__restrict__ image_weights, float *__restrict__ out_weights,
-    int *__restrict__ out_cnt, const bool render_like) {
+    int *__restrict__ out_cnt, const bool render_like, const int num_channels) {
   // Identify current tile and associated min/max pixel range.
   auto block = cg::this_thread_block();
   uint32_t horizontal_blocks = (W + BLOCK_X - 1) / BLOCK_X;
@@ -318,16 +317,16 @@ __global__ void __launch_bounds__(BLOCK_X *BLOCK_Y) renderCUDA_apply_weights(
       }
 
       // Eq. (3) from 3D Gaussian splatting paper.
-      for (int ch = 0; ch < CHANNELS; ch++) {
+      for (int ch = 0; ch < num_channels; ch++) {
         if (render_like)
-          atomicAdd(&out_weights[collected_id[j] * CHANNELS + ch],
+          atomicAdd(&out_weights[collected_id[j] * num_channels + ch],
                     image_weights[ch * H * W + pix_id] * alpha * T);
         else
-          atomicAdd(&out_weights[collected_id[j] * CHANNELS + ch],
+          atomicAdd(&out_weights[collected_id[j] * num_channels + ch],
                     image_weights[ch * H * W + pix_id]);
         // atomicAdd(out_weights + (collected_id[j] * CHANNELS + ch), C[ch] *
         // T);
-        atomicAdd(&out_cnt[collected_id[j]], 1);
+        atomicAdd(&out_cnt[collected_id[j] * num_channels + ch], 1);
         // if (C[ch] > 0.0f) {
         //   atomicAdd(out_weights + (collected_id[j] * CHANNELS + ch), C[ch] *
         //   T); atomicAdd(out_cnt + collected_id[j], 1);
@@ -358,22 +357,9 @@ void APPLY_WEIGHTS::render(const dim3 grid, dim3 block, const uint2 *ranges,
                            const float *bg_color, const float *image_weights,
                            float *out_weights, int *out_cnt,
                            const bool render_like, const int num_channels) {
-  if (num_channels == 1) {
-    renderCUDA_apply_weights<1><<<grid, block>>>(
-        ranges, point_list, W, H, means2D, conic_opacity, final_T, n_contrib,
-        bg_color, image_weights, out_weights, out_cnt, render_like);
-  } else if (num_channels == 2) {
-    renderCUDA_apply_weights<2><<<grid, block>>>(
-        ranges, point_list, W, H, means2D, conic_opacity, final_T, n_contrib,
-        bg_color, image_weights, out_weights, out_cnt, render_like);
-  } else if (num_channels == 3) {
-    renderCUDA_apply_weights<3><<<grid, block>>>(
-        ranges, point_list, W, H, means2D, conic_opacity, final_T, n_contrib,
-        bg_color, image_weights, out_weights, out_cnt, render_like);
-  } else {
-    printf("Unsupported number of channels: %d\n", num_channels);
-    exit(-1);
-  }
+  renderCUDA_apply_weights<<<grid, block>>>(
+      ranges, point_list, W, H, means2D, conic_opacity, final_T, n_contrib,
+      bg_color, image_weights, out_weights, out_cnt, render_like, num_channels);
 }
 
 void APPLY_WEIGHTS::preprocess(
